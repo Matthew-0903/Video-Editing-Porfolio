@@ -18,20 +18,8 @@ export const Hero: React.FC<HeroProps> = ({
   onScrollToProjects,
   isCustomVideoActive,
 }) => {
-  const [isMuted, setIsMuted] = useState(true);
   const [aspectScope, setAspectScope] = useState<'2.39' | '16:9'>('2.39');
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   const parsedHero = parseVideoUrl(heroVideoUrl);
-  const isEmbed = parsedHero.type === 'youtube' || parsedHero.type === 'vimeo';
-
-  const toggleSound = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
-  };
-
 
   return (
     <section id="hero-showreel" className="relative pt-28 pb-16 px-4 sm:px-6 max-w-7xl mx-auto">
@@ -104,57 +92,17 @@ export const Hero: React.FC<HeroProps> = ({
             aspectScope === '2.39' ? 'aspect-[2.39/1]' : 'aspect-video'
           }`}
         >
-          {isEmbed ? (
-            <iframe
-              key={parsedHero.embedUrl}
-              src={parsedHero.embedUrl}
-              title="Hero Showreel Master"
-              className="h-full w-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          ) : (
-            <video
-              ref={videoRef}
-              src={heroVideoUrl}
-              poster="/thumbnails/lf-gc-financial-house.webp"
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              className="h-full w-full object-cover filter grayscale contrast-125 brightness-95 transition-all duration-500 hover:grayscale-0"
-            />
-          )}
-
-          {/* Film Matte Overlay (when 2.39:1 is active and not an iframe) */}
-          {!isEmbed && aspectScope === '2.39' && (
-            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-              <div className="h-[4%] w-full bg-black/80" />
-              <div className="h-[4%] w-full bg-black/80" />
-            </div>
-          )}
-
-          {/* Slate HUD Overlay */}
-          {!isEmbed && (
-            <div className="pointer-events-none absolute bottom-4 left-4 font-mono text-[10px] sm:text-xs text-neutral-300 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded border border-neutral-800">
-              <span className="text-white font-bold">SCENE: 01</span> // TAKE: 04 // REC709 FINISH
-            </div>
-          )}
+          <iframe
+            key={parsedHero.embedUrl}
+            src={parsedHero.embedUrl}
+            title="Hero Showreel Master"
+            className="h-full w-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
 
           {/* Quick Corner Controls */}
           <div className="absolute bottom-4 right-4 flex items-center gap-2">
-            {!isEmbed && (
-              <button
-                id="hero-sound-toggle-btn"
-                onClick={toggleSound}
-                className="flex items-center gap-1.5 rounded-lg bg-black/80 border border-neutral-800 px-3 py-1.5 font-mono text-xs text-white backdrop-blur-sm hover:bg-white hover:text-black transition-colors"
-                title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-              >
-                {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                <span className="hidden sm:inline">{isMuted ? 'UNMUTE' : 'AUDIO ON'}</span>
-              </button>
-            )}
-
             <MagneticButton
               id="hero-full-modal-btn"
               onClick={onOpenReelModal}

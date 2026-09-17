@@ -11,8 +11,6 @@ interface ProjectGridProps {
 
 interface ProjectCardMediaProps {
   project: Project;
-  isHovered: boolean;
-  onHoverChange: (hovered: boolean) => void;
   onOpenModal: () => void;
   aspectClass?: string;
   forceVertical?: boolean;
@@ -20,78 +18,18 @@ interface ProjectCardMediaProps {
 
 const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
   project,
-  isHovered,
-  onHoverChange,
   onOpenModal,
   aspectClass = 'aspect-video',
   forceVertical = false,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlayingInline, setIsPlayingInline] = useState(false);
-  const [isMutedInline, setIsMutedInline] = useState(true);
-
   const isVertical = project.aspectRatio === '9:16';
-  const videoUrl = project.videoUrl;
-  const parsedVideo = parseVideoUrl(videoUrl);
-  const isDirectMp4 = parsedVideo.type === 'mp4';
-
-  const shouldStreamVideo = isDirectMp4 && (isHovered || isPlayingInline);
-
-  // Stream video only when user hovers or explicitly plays inline (for direct MP4s)
-  useEffect(() => {
-    if (shouldStreamVideo && videoRef.current) {
-      if (videoRef.current.currentTime === 0) {
-        videoRef.current.currentTime = 0.001;
-      }
-      videoRef.current.play().then(() => {
-        setIsPlayingInline(true);
-      }).catch(() => {
-        if (videoRef.current) {
-          videoRef.current.muted = true;
-          setIsMutedInline(true);
-          videoRef.current.play().catch(() => {});
-        }
-      });
-    } else if (!shouldStreamVideo && videoRef.current) {
-      videoRef.current.pause();
-    }
-  }, [shouldStreamVideo]);
-
-  const toggleInlinePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isDirectMp4) {
-      onOpenModal();
-      return;
-    }
-    if (isPlayingInline) {
-      setIsPlayingInline(false);
-      if (videoRef.current) videoRef.current.pause();
-    } else {
-      setIsPlayingInline(true);
-    }
-  };
-
-
-  const toggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMutedInline;
-    setIsMutedInline(!isMutedInline);
-  };
-
-  const handleOpenMasterModal = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onOpenModal();
-  };
 
   return (
     <div
-      className={`relative w-full overflow-hidden bg-[#0a0a0c] select-none ${aspectClass}`}
-      onMouseEnter={() => onHoverChange(true)}
-      onMouseLeave={() => onHoverChange(false)}
+      className={`relative w-full overflow-hidden bg-[#0a0a0c] select-none cursor-pointer group ${aspectClass}`}
       onClick={onOpenModal}
     >
-      {/* Dynamic Viewport: Lightweight WebP Poster by default, Video on hover/play */}
+      {/* Viewport: Lightweight WebP Poster with ambient effects */}
       {isVertical && !forceVertical && aspectClass === 'aspect-video' ? (
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#070709]">
           {/* Ambient blurred backdrop */}
@@ -104,49 +42,23 @@ const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
             className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-35 scale-125 pointer-events-none"
           />
 
-          {/* Sharp Foreground: Image or Active Streaming Video */}
-          {shouldStreamVideo ? (
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              muted={isMutedInline}
-              playsInline
-              loop
-              preload="metadata"
-              className="relative h-full aspect-[9/16] object-contain z-10 filter contrast-110"
-            />
-          ) : (
-            <img
-              src={project.posterUrl}
-              alt={project.title}
-              loading="lazy"
-              decoding="async"
-              className="relative h-full aspect-[9/16] object-contain z-10 filter contrast-110"
-            />
-          )}
+          {/* Foreground poster */}
+          <img
+            src={project.posterUrl}
+            alt={project.title}
+            loading="lazy"
+            decoding="async"
+            className="relative h-full aspect-[9/16] object-contain z-10 filter contrast-110 group-hover:scale-105 transition-transform duration-300"
+          />
         </div>
       ) : (
-        <>
-          {shouldStreamVideo ? (
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              muted={isMutedInline}
-              playsInline
-              loop
-              preload="metadata"
-              className="h-full w-full object-cover filter contrast-105 group-hover:contrast-115 transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <img
-              src={project.posterUrl}
-              alt={project.title}
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover filter contrast-105 group-hover:contrast-115 transition-transform duration-500 group-hover:scale-105"
-            />
-          )}
-        </>
+        <img
+          src={project.posterUrl}
+          alt={project.title}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover filter contrast-105 group-hover:contrast-115 transition-transform duration-500 group-hover:scale-105"
+        />
       )}
 
       {/* Top Format & Duration Badges */}
@@ -163,57 +75,27 @@ const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
         {project.category}
       </div>
 
-      {/* Center Play/Pause Controller Button */}
+      {/* Center Play Button on Hover */}
       <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-        <button
-          type="button"
-          onClick={toggleInlinePlay}
-          className={`pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-black shadow-2xl transition-all duration-300 transform hover:scale-110 hover:bg-white ${
-            isPlayingInline ? 'opacity-0 group-hover:opacity-100' : 'opacity-85 group-hover:opacity-100'
-          }`}
-          title={isPlayingInline ? 'Pause Preview' : 'Play Preview'}
+        <div
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-all duration-300 transform group-hover:scale-110 opacity-90 group-hover:opacity-100"
+          title="Play Master Video"
         >
-          {isPlayingInline ? (
-            <Pause className="h-5 w-5 fill-current" />
-          ) : (
-            <Play className="h-5 w-5 fill-current ml-0.5" />
-          )}
-        </button>
+          <Play className="h-5 w-5 fill-current ml-0.5" />
+        </div>
       </div>
 
-      {/* Bottom HUD Bar & Controls */}
-      <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between font-mono text-[10px] text-white/90 bg-black/80 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-neutral-800 transition-opacity duration-200">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleInlinePlay}
-            className="text-neutral-300 hover:text-white flex items-center gap-1"
-          >
-            {isPlayingInline ? <Pause className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
-            <span>{isPlayingInline ? 'PLAYING' : 'PREVIEW'}</span>
-          </button>
-
-          {isPlayingInline && (
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="text-neutral-400 hover:text-white ml-1 p-0.5"
-              title={isMutedInline ? 'Unmute' : 'Mute'}
-            >
-              {isMutedInline ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-            </button>
-          )}
+      {/* Bottom Action Bar */}
+      <div className="absolute bottom-2 left-2 right-2 z-20 flex items-center justify-between font-mono text-[10px] text-white/90 bg-black/80 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-neutral-800">
+        <div className="flex items-center gap-1.5 text-neutral-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+          <span>YOUTUBE MASTER</span>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenMasterModal}
-          className="flex items-center gap-1 text-white hover:text-neutral-300 bg-neutral-900/90 border border-neutral-700/80 px-2 py-0.5 rounded transition-colors"
-          title="Open Full Mastering Monitor"
-        >
+        <span className="flex items-center gap-1 text-white bg-neutral-900/90 border border-neutral-700/80 px-2 py-0.5 rounded transition-colors group-hover:bg-white group-hover:text-black">
           <Maximize2 className="h-3 w-3" />
-          <span>FULL MONITOR</span>
-        </button>
+          <span>WATCH</span>
+        </span>
       </div>
     </div>
   );
@@ -252,13 +134,13 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-2 font-mono text-xs text-neutral-400">
             <Film className="h-3.5 w-3.5 text-white" />
-            <span>SELECTED EDITORIAL ARCHIVE // 14 MASTER WORKS</span>
+            <span>SELECTED EDITORIAL ARCHIVE // {projects.length} MASTER WORKS</span>
           </div>
           <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white uppercase">
             Curated Portfolio
           </h2>
           <p className="text-neutral-400 text-sm mt-1 max-w-xl font-mono">
-            Click any project to open the master monitor or play inline previews directly on the cards.
+            Click any project to open the master monitor and stream in full resolution.
           </p>
         </div>
 
@@ -341,8 +223,6 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
             >
               <ProjectCardMedia
                 project={project}
-                isHovered={hoveredProjectId === project.id}
-                onHoverChange={(h) => setHoveredProjectId(h ? project.id : null)}
                 onOpenModal={() => onSelectProject(project)}
                 aspectClass="aspect-video"
               />
@@ -388,8 +268,6 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
             >
               <ProjectCardMedia
                 project={project}
-                isHovered={hoveredProjectId === project.id}
-                onHoverChange={(h) => setHoveredProjectId(h ? project.id : null)}
                 onOpenModal={() => onSelectProject(project)}
                 aspectClass="aspect-video"
               />
@@ -429,8 +307,6 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
               {/* Vertical Phone Screen Media */}
               <ProjectCardMedia
                 project={project}
-                isHovered={hoveredProjectId === project.id}
-                onHoverChange={(h) => setHoveredProjectId(h ? project.id : null)}
                 onOpenModal={() => onSelectProject(project)}
                 aspectClass="aspect-[9/16]"
                 forceVertical={true}
