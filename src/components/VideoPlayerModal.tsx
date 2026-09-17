@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward, 
-  Film, Sliders, Award, Layers, Clock, Info, CheckCircle2
+  Film, Sliders, Award, Layers, Clock, Info, CheckCircle2, Heart,
+  MessageCircle, Bookmark, Share2, Music2, Eye, ShieldCheck
 } from 'lucide-react';
 import { Project } from '../types';
 
@@ -18,6 +19,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   customVideoUrl
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
@@ -25,6 +27,10 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   const [aspectRatioOverride, setAspectRatioOverride] = useState<'default' | '2.39:1' | '16:9' | '4:3' | '9:16'>('default');
   const [colorGradeMode, setColorGradeMode] = useState<'finished' | 'bw-noir' | 'flat-log' | 'vintage'>('finished');
   const [activeTab, setActiveTab] = useState<'player' | 'breakdown' | 'specs'>('player');
+  const [showSafeZone, setShowSafeZone] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+
+  const isCurrentVertical = project?.aspectRatio === '9:16' || aspectRatioOverride === '9:16';
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,9 +78,27 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration || 0);
-      videoRef.current.play().catch(() => {
-        setIsPlaying(false);
-      });
+      videoRef.current.playbackRate = playbackSpeed;
+      // Try playing with sound first; fallback to muted if browser autoplay blocks audio
+      const promise = videoRef.current.play();
+      if (promise !== undefined) {
+        promise
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch(() => {
+            // Autoplay policy prevented unmuted play, retry muted
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+              videoRef.current.play().then(() => {
+                setIsPlaying(true);
+              }).catch(() => {
+                setIsPlaying(false);
+              });
+            }
+          });
+      }
     }
   };
 
@@ -83,6 +107,22 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
     if (videoRef.current) {
       videoRef.current.currentTime = targetTime;
       setCurrentTime(targetTime);
+    }
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!videoRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      videoRef.current.requestFullscreen().catch(() => {});
     }
   };
 
@@ -98,53 +138,51 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
 
   const formatTimecode = (seconds: number) => {
     const totalFrames = Math.floor(seconds * 24);
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
+    const hrs = Math.floor(totalFrames / (24 * 3600));
+    const mins = Math.floor((totalFrames % (24 * 3600)) / (24 * 60));
+    const secs = Math.floor((totalFrames % (24 * 60)) / 24);
     const frames = totalFrames % 24;
 
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}:${pad(frames)}`;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
 
   if (!project) return null;
 
   const currentVideoSrc = customVideoUrl || project.videoUrl;
 
-  // Filter styles for color grading comparison
-  const filterStyles: Record<string, string> = {
-    'finished': 'grayscale(100%) contrast(115%) brightness(95%)',
-    'bw-noir': 'grayscale(100%) contrast(145%) brightness(88%)',
-    'flat-log': 'grayscale(80%) contrast(75%) brightness(110%) saturate(40%)',
-    'vintage': 'grayscale(100%) contrast(120%) sepia(20%) brightness(92%)',
+  const filterStyles = {
+    'finished': 'contrast(105%) brightness(100%)',
+    'bw-noir': 'grayscale(100%) contrast(140%) brightness(95%)',
+    'flat-log': 'contrast(70%) brightness(115%) saturate(70%)',
+    'vintage': 'sepia(30%) contrast(110%) brightness(95%) hue-rotate(-10deg)',
   };
+
+  const effectiveAspect = aspectRatioOverride !== 'default' 
+    ? aspectRatioOverride 
+    : project.aspectRatio === '9:16' ? '9:16' : '16:9';
 
   return (
     <AnimatePresence>
       <motion.div
-        id="video-player-modal-backdrop"
+        id="video-player-modal"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-3 md:p-6 backdrop-blur-md"
-        onClick={onClose}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-2 sm:p-4 md:p-6"
       >
         <motion.div
-          id="video-player-modal-container"
-          initial={{ scale: 0.95, opacity: 0, y: 15 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 15 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="relative flex flex-col w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-xl border border-neutral-800 bg-[#0c0c0e] shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="relative flex flex-col w-full max-w-6xl max-h-[95vh] rounded-2xl overflow-hidden border border-neutral-800 bg-[#08080a] shadow-2xl"
         >
           {/* Header Bar */}
           <div className="flex items-center justify-between border-b border-neutral-800/80 px-4 py-3 bg-[#0a0a0c]">
             <div className="flex items-center gap-3">
               <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
               <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xs text-neutral-400 tracking-wider">PROJECT MASTER //</span>
-                <h3 className="font-display text-sm font-semibold tracking-wide text-white uppercase">
+                <span className="font-mono text-xs text-neutral-400 tracking-wider hidden sm:inline">MASTER MONITOR //</span>
+                <h3 className="font-display text-sm sm:text-base font-semibold tracking-wide text-white uppercase truncate max-w-xs md:max-w-md">
                   {project.title}
                 </h3>
               </div>
@@ -196,50 +234,100 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
           </div>
 
           {/* Main Video Viewport & Content Area */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-black flex flex-col">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-black flex flex-col justify-center">
             {activeTab === 'player' && (
-              <div className="relative w-full flex flex-col items-center justify-center bg-black min-h-[340px] md:min-h-[500px]">
-                {/* Simulated Aspect Ratio Letterbox Container */}
+              <div className="relative w-full flex flex-col items-center justify-center bg-black min-h-[360px] md:min-h-[520px] p-2 md:p-4">
+                {/* Simulated Aspect Ratio Container */}
                 <div 
-                  className={`relative w-full transition-all duration-300 flex items-center justify-center overflow-hidden bg-neutral-950 ${
-                    aspectRatioOverride === '2.39:1' 
+                  ref={containerRef}
+                  className={`relative w-full transition-all duration-300 flex items-center justify-center overflow-hidden bg-neutral-950 rounded-lg ${
+                    effectiveAspect === '2.39:1' 
                       ? 'aspect-[2.39/1] max-w-5xl' 
-                      : aspectRatioOverride === '4:3'
+                      : effectiveAspect === '4:3'
                       ? 'aspect-[4/3] max-w-2xl'
-                      : aspectRatioOverride === '9:16'
-                      ? 'aspect-[9/16] max-w-[340px]'
+                      : effectiveAspect === '9:16'
+                      ? 'aspect-[9/16] max-w-[340px] md:max-w-[380px] max-h-[68vh]'
                       : 'aspect-video max-w-5xl'
                   }`}
                 >
                   <video
                     ref={videoRef}
                     src={currentVideoSrc}
-                    poster={project.posterUrl}
+                    muted={isMuted}
                     playsInline
                     loop
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onClick={togglePlay}
                     style={{ filter: filterStyles[colorGradeMode] }}
-                    className="h-full w-full object-cover cursor-pointer"
+                    className="h-full w-full object-contain cursor-pointer"
                   />
 
                   {/* Cinema Letterbox Bars if 2.39:1 scope is simulated over 16:9 screen */}
-                  {aspectRatioOverride === '2.39:1' && (
+                  {effectiveAspect === '2.39:1' && (
                     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
                       <div className="h-[8%] w-full bg-black/90 border-b border-neutral-900" />
                       <div className="h-[8%] w-full bg-black/90 border-t border-neutral-900" />
                     </div>
                   )}
 
-                  {/* On-screen timecode & HUD overlay */}
-                  <div className="pointer-events-none absolute top-4 left-4 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-xs text-white/90 backdrop-blur-sm border border-neutral-800">
+                  {/* TikTok / Instagram Reels UI Safe Zone Simulator */}
+                  {showSafeZone && effectiveAspect === '9:16' && (
+                    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 bg-transparent select-none">
+                      {/* Top Bar: Following / For You */}
+                      <div className="flex items-center justify-center gap-4 text-xs font-semibold text-white/70 drop-shadow">
+                        <span className="opacity-50">Following</span>
+                        <span className="border-b-2 border-white pb-0.5">For You</span>
+                      </div>
+
+                      {/* Right Social Actions Column */}
+                      <div className="absolute right-3 bottom-20 flex flex-col items-center gap-4 text-white/90 drop-shadow">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-9 w-9 rounded-full bg-neutral-800/80 border border-white/40 flex items-center justify-center">
+                            <Heart className="h-5 w-5 fill-white" />
+                          </div>
+                          <span className="text-[10px] font-mono">142K</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-9 w-9 rounded-full bg-neutral-800/80 border border-white/40 flex items-center justify-center">
+                            <MessageCircle className="h-5 w-5 fill-white" />
+                          </div>
+                          <span className="text-[10px] font-mono">2.4K</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-9 w-9 rounded-full bg-neutral-800/80 border border-white/40 flex items-center justify-center">
+                            <Bookmark className="h-5 w-5 fill-white" />
+                          </div>
+                          <span className="text-[10px] font-mono">38K</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-9 w-9 rounded-full bg-neutral-800/80 border border-white/40 flex items-center justify-center">
+                            <Share2 className="h-5 w-5" />
+                          </div>
+                          <span className="text-[10px] font-mono">Share</span>
+                        </div>
+                      </div>
+
+                      {/* Bottom Caption & Audio Safe Area Warning */}
+                      <div className="max-w-[75%] space-y-1 text-white/90 drop-shadow">
+                        <div className="text-xs font-bold font-mono">@matthewross_edits • Master</div>
+                        <p className="text-[11px] line-clamp-2 text-white/80">{project.description}</p>
+                        <div className="flex items-center gap-1 text-[10px] font-mono text-white/70">
+                          <Music2 className="h-3 w-3 animate-spin" />
+                          <span>Original Sound • Master Mix (Stereo)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* On-screen Timecode & Telemetry HUD */}
+                  <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-xs text-white/90 backdrop-blur-sm border border-neutral-800 z-20">
                     <Clock className="h-3 w-3 text-neutral-400" />
                     <span>TC: {formatTimecode(currentTime)}</span>
                   </div>
 
-                  <div className="pointer-events-none absolute top-4 right-4 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-[11px] text-white/80 backdrop-blur-sm border border-neutral-800">
-                    <span>FPS: 24.00</span>
+                  <div className="pointer-events-none absolute top-3 right-3 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-[11px] text-white/80 backdrop-blur-sm border border-neutral-800 z-20">
+                    <span>{playbackSpeed}x SPEED</span>
                     <span className="text-neutral-500">•</span>
                     <span>LUT: {colorGradeMode.toUpperCase()}</span>
                   </div>
@@ -248,7 +336,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                   {!isPlaying && (
                     <button
                       onClick={togglePlay}
-                      className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-black shadow-2xl transition-transform hover:scale-110"
+                      className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-transform hover:scale-110 z-20"
                     >
                       <Play className="h-7 w-7 fill-current ml-1" />
                     </button>
@@ -256,7 +344,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                 </div>
 
                 {/* Video Transport Controls */}
-                <div className="w-full bg-[#0e0e11] border-t border-neutral-800 px-4 py-3">
+                <div className="w-full max-w-5xl bg-[#0e0e11] border border-neutral-800 rounded-xl px-4 py-3 mt-3">
                   {/* Scrubber Bar */}
                   <div className="flex items-center gap-3 mb-3">
                     <span className="font-mono text-xs text-neutral-400 w-24">
@@ -279,10 +367,10 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Secondary Transport & Controls */}
+                  {/* Secondary Transport & Toggles */}
                   <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                    {/* Playback Buttons */}
-                    <div className="flex items-center gap-2">
+                    {/* Playback & Frame Buttons */}
+                    <div className="flex items-center gap-1.5">
                       <button
                         id="step-frame-back-btn"
                         onClick={() => stepFrame(-1)}
@@ -314,33 +402,67 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                         id="audio-mute-btn"
                         onClick={toggleMute}
                         className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 ml-1"
-                        title="Mute / Unmute"
+                        title={isMuted ? 'Unmute' : 'Mute'}
                       >
                         {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
                       </button>
                     </div>
 
+                    {/* Speed Selector */}
+                    <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
+                      <span className="font-mono text-[10px] text-neutral-500 px-1">SPEED:</span>
+                      {[0.5, 1, 1.5, 2].map((spd) => (
+                        <button
+                          key={spd}
+                          onClick={() => handleSpeedChange(spd)}
+                          className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${
+                            playbackSpeed === spd
+                              ? 'bg-neutral-700 text-white font-bold'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+
                     {/* Format / Aspect Ratio Simulator */}
                     <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
-                      <span className="font-mono text-[10px] text-neutral-500 px-1.5">MATTE:</span>
-                      {(['default', '2.39:1', '16:9', '9:16'] as const).map((ratio) => (
+                      <span className="font-mono text-[10px] text-neutral-500 px-1">FRAME:</span>
+                      {(['default', '16:9', '9:16', '2.39:1'] as const).map((ratio) => (
                         <button
                           key={ratio}
                           onClick={() => setAspectRatioOverride(ratio)}
                           className={`px-2 py-0.5 rounded font-mono text-[10px] uppercase transition-colors ${
                             aspectRatioOverride === ratio
-                              ? 'bg-neutral-700 text-white font-bold'
+                              ? 'bg-white text-black font-bold'
                               : 'text-neutral-400 hover:text-white'
                           }`}
                         >
-                          {ratio === 'default' ? 'ORIGINAL' : ratio}
+                          {ratio === 'default' ? 'AUTO' : ratio}
                         </button>
                       ))}
                     </div>
 
+                    {/* Safe Zone Toggle (for 9:16) */}
+                    {effectiveAspect === '9:16' && (
+                      <button
+                        onClick={() => setShowSafeZone(!showSafeZone)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded font-mono text-[10px] border transition-colors ${
+                          showSafeZone 
+                            ? 'bg-blue-600 text-white border-blue-500 font-bold' 
+                            : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:text-white'
+                        }`}
+                        title="Toggle TikTok / Reels Safe Margins Overlay"
+                      >
+                        <ShieldCheck className="h-3 w-3" />
+                        <span>REELS HUD</span>
+                      </button>
+                    )}
+
                     {/* Color Profile Simulation */}
                     <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
-                      <span className="font-mono text-[10px] text-neutral-500 px-1.5">COLOR:</span>
+                      <span className="font-mono text-[10px] text-neutral-500 px-1">LUT:</span>
                       {(['finished', 'bw-noir', 'flat-log'] as const).map((mode) => (
                         <button
                           key={mode}
@@ -351,10 +473,19 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                               : 'text-neutral-400 hover:text-white'
                           }`}
                         >
-                          {mode === 'finished' ? 'REC.709' : mode === 'bw-noir' ? 'NOIR' : 'LOG FLAT'}
+                          {mode === 'finished' ? 'REC.709' : mode === 'bw-noir' ? 'NOIR' : 'LOG'}
                         </button>
                       ))}
                     </div>
+
+                    {/* Fullscreen */}
+                    <button
+                      onClick={toggleFullscreen}
+                      className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+                      title="Fullscreen"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -371,9 +502,9 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-neutral-800">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-neutral-800">
                   <div className="p-4 rounded-lg bg-neutral-900/50 border border-neutral-800">
-                    <span className="font-mono text-[11px] text-neutral-500 block">CLIENT / PRODUCER</span>
+                    <span className="font-mono text-[11px] text-neutral-500 block">CLIENT / CREATIVE</span>
                     <span className="font-medium text-white text-sm mt-1 block">{project.client}</span>
                   </div>
                   <div className="p-4 rounded-lg bg-neutral-900/50 border border-neutral-800">
@@ -381,27 +512,10 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                     <span className="font-medium text-white text-sm mt-1 block">{project.role}</span>
                   </div>
                   <div className="p-4 rounded-lg bg-neutral-900/50 border border-neutral-800">
-                    <span className="font-mono text-[11px] text-neutral-500 block">METRICS & CUT COUNT</span>
-                    <span className="font-medium text-white text-sm mt-1 block">
-                      {project.stats?.cuts || 64} Cuts • {project.stats?.views || '1M+'} Views
-                    </span>
+                    <span className="font-mono text-[11px] text-neutral-500 block">EDITORIAL SOFTWARE</span>
+                    <span className="font-medium text-white text-sm mt-1 block">Adobe Premiere Pro</span>
                   </div>
                 </div>
-
-                {project.awards && project.awards.length > 0 && (
-                  <div className="p-4 rounded-lg bg-neutral-900/30 border border-neutral-800">
-                    <span className="font-mono text-[11px] text-neutral-400 flex items-center gap-1.5 mb-2">
-                      <Award className="h-3.5 w-3.5 text-neutral-300" /> RECOGNITION & SELECTIONS
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {project.awards.map((award, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 rounded border border-neutral-700 bg-neutral-800/80 px-2.5 py-1 text-xs text-white">
-                          <CheckCircle2 className="h-3 w-3 text-neutral-300" /> {award}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -413,36 +527,25 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                   <h4 className="font-display text-xl font-bold text-white mt-1">Post-Production Technical Stack</h4>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 rounded-lg bg-neutral-900/60 border border-neutral-800">
-                    <span className="font-mono text-[11px] text-neutral-500">POST SOFTWARE SUITE</span>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {project.tools.map((tool, idx) => (
-                        <span key={idx} className="rounded bg-neutral-800 px-2 py-1 font-mono text-xs text-neutral-200">
-                          {tool}
-                        </span>
-                      ))}
-                    </div>
+                    <span className="font-mono text-[11px] text-neutral-500">POST SOFTWARE</span>
+                    <p className="font-mono text-xs text-neutral-200 mt-2 font-semibold">
+                      Adobe Premiere Pro
+                    </p>
                   </div>
 
                   <div className="p-4 rounded-lg bg-neutral-900/60 border border-neutral-800">
                     <span className="font-mono text-[11px] text-neutral-500">MASTER DELIVERY FORMAT</span>
                     <p className="font-mono text-xs text-neutral-300 mt-2">
-                      ProRes 4444 XQ • Rec.709 / ACEScct • 24.00 fps • 48kHz 24-bit 5.1 Surround & Stereo Mix
+                      H.264 / ProRes • Rec.709 Color • 24.00 fps • 48kHz Stereo Master
                     </p>
                   </div>
 
                   <div className="p-4 rounded-lg bg-neutral-900/60 border border-neutral-800">
-                    <span className="font-mono text-[11px] text-neutral-500">COLOR SPACE PIPELINE</span>
+                    <span className="font-mono text-[11px] text-neutral-500">ASPECT RATIO & TIMECODE</span>
                     <p className="font-mono text-xs text-neutral-300 mt-2">
-                      ACES 1.3 Color Science • Custom film density curves • Kodak 5219 / 2383 Print Stock Emulation
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-neutral-900/60 border border-neutral-800">
-                    <span className="font-mono text-[11px] text-neutral-500">TIMELINE CADENCE</span>
-                    <p className="font-mono text-xs text-neutral-300 mt-2">
-                      {project.stats?.timelineBpm || '120 BPM'} Rhythm grid sync • Frame-locked Foley & Impact sub-bass
+                      Native {project.aspectRatio} • Runtime {project.duration} • Header TC {project.timecode}
                     </p>
                   </div>
                 </div>
@@ -453,7 +556,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
           {/* Bottom quick action bar */}
           <div className="border-t border-neutral-800 bg-[#0c0c0e] px-4 py-2.5 flex items-center justify-between text-xs text-neutral-400">
             <span className="font-mono text-[11px]">
-              Keyboard Shortcuts: <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">Space</kbd> Play/Pause • <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">←</kbd> <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">→</kbd> Frame Step
+              Shortcuts: <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">Space</kbd> Play/Pause • <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">←</kbd> <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200">→</kbd> Frame Step
             </span>
             <button
               onClick={() => setActiveTab(activeTab === 'player' ? 'breakdown' : 'player')}

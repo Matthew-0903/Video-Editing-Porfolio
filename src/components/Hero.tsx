@@ -60,8 +60,8 @@ export const Hero: React.FC<HeroProps> = ({
         {/* Film Slate Top Bar */}
         <div className="flex items-center justify-between border-b border-neutral-800/80 bg-[#09090b] px-4 py-2.5 font-mono text-[11px] text-neutral-400">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-white font-bold">
-              <Film className="h-3.5 w-3.5" /> SHOWREEL_CUT_V4_MASTER.MOV
+            <span className="flex items-center gap-1.5 text-white font-bold uppercase tracking-wider">
+              <Film className="h-3.5 w-3.5" /> WHO IS THE GC FOR YOUR FINANCIAL HOUSE?
             </span>
             {isCustomVideoActive && (
               <span className="rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold">
@@ -102,6 +102,7 @@ export const Hero: React.FC<HeroProps> = ({
           <video
             ref={videoRef}
             src={heroVideoUrl}
+            poster="/thumbnails/lf-gc-financial-house.webp"
             autoPlay
             loop
             muted={isMuted}
@@ -146,18 +147,14 @@ export const Hero: React.FC<HeroProps> = ({
         </div>
 
         {/* Bottom Slate Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-neutral-800/80 bg-[#09090b] px-4 py-3 font-mono text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 border-t border-neutral-800/80 bg-[#09090b] px-4 py-3 font-mono text-xs">
           <div className="border-r border-neutral-800/80 pr-2">
-            <span className="text-neutral-500 text-[10px] block">CUT COUNT</span>
-            <span className="text-white font-semibold">1,240+ FRAME CUTS</span>
+            <span className="text-neutral-500 text-[10px] block">EDITORIAL NLE</span>
+            <span className="text-white font-semibold">ADOBE PREMIERE PRO</span>
           </div>
           <div className="border-r border-neutral-800/80 px-2">
-            <span className="text-neutral-500 text-[10px] block">COLOR SCIENCE</span>
-            <span className="text-white font-semibold">ACES 1.3 / FILM PRINT</span>
-          </div>
-          <div className="border-r border-neutral-800/80 px-2 hidden sm:block">
-            <span className="text-neutral-500 text-[10px] block">NLE ENVIRONMENT</span>
-            <span className="text-white font-semibold">DAVINCI 19 / PREMIERE</span>
+            <span className="text-neutral-500 text-[10px] block">COLOR & AUDIO</span>
+            <span className="text-white font-semibold">REC.709 / 48kHz STEREO</span>
           </div>
           <div className="pl-2 flex items-center justify-end">
             <button

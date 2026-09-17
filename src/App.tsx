@@ -8,10 +8,12 @@ import { ContactFooter } from './components/ContactFooter';
 import { VideoPlayerModal } from './components/VideoPlayerModal';
 
 export default function App() {
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [projects] = useState<Project[]>(INITIAL_PROJECTS);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  const heroVideo = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4';
+  // Use the prominent long-form master as the cinematic hero video
+  // Use "Who is the GC for Your Financial House?" as the featured hero video
+  const heroVideo = '/Longform/Who%20is%20the%20GC%20for%20financial%20house.mp4';
 
   const handleScrollTo = (elementId: string) => {
     const el = document.getElementById(elementId);
@@ -21,32 +23,12 @@ export default function App() {
   };
 
   const handleOpenDirectReel = () => {
-    const heroProject: Project = {
-      id: 'showreel-master',
-      title: 'DIRECTOR\'S SHOWREEL 2026',
-      client: 'Selected Global Brands',
-      category: 'Long Form',
-      year: '2026',
-      aspectRatio: '2.39:1',
-      duration: '01:50',
-      timecode: '00:01:50:00',
-      videoUrl: heroVideo,
-      posterUrl: projects[0].posterUrl,
-      description: 'Comprehensive compilation of rhythm cuts, micro-timing pacing, dynamic speed curves, and high-contrast monochrome cinematography.',
-      role: 'Lead Editor, Sound Designer & Finisher',
-      tools: ['DaVinci Resolve Studio 19', 'Adobe Premiere Pro', 'Soundly', 'iZotope RX'],
-      awards: ['Cannes Lions Bronze', 'Vimeo Staff Pick', 'Clio Shortlist'],
-      stats: {
-        views: '2.4M',
-        cuts: 84,
-        timelineBpm: '138 BPM',
-      },
-    };
+    const heroProject = projects.find((p) => p.id === 'lf-gc-financial-house') || projects[0];
     setSelectedProject(heroProject);
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#f4f4f5] selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-[#080808] text-[#f4f4f5] selection:bg-white selection:text-black font-sans antialiased">
       {/* Navigation */}
       <Navbar
         onScrollTo={handleScrollTo}
@@ -54,14 +36,14 @@ export default function App() {
       />
 
       <main>
-        {/* Cinematic Hero */}
+        {/* Cinematic Hero Showreel */}
         <Hero
           heroVideoUrl={heroVideo}
           onOpenReelModal={handleOpenDirectReel}
           onScrollToProjects={() => handleScrollTo('projects')}
         />
 
-        {/* Selected Projects Grid (Long Form & Short Form Tabs) */}
+        {/* Selected Projects Grid with Short-Form (9:16) & Long-Form (16:9) */}
         <ProjectGrid
           projects={projects}
           onSelectProject={(project) => setSelectedProject(project)}
@@ -71,7 +53,7 @@ export default function App() {
       {/* Footer & Direct Inquiry Booking */}
       <ContactFooter />
 
-      {/* Interactive Video Player Modal with Frame-by-frame & Aspect Ratio Sim */}
+      {/* Interactive Video Player Modal with Safe-Zone & Aspect Ratio Sim */}
       {selectedProject && (
         <VideoPlayerModal
           project={selectedProject}

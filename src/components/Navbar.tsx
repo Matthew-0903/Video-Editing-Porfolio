@@ -40,6 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navLinks = [
     { label: 'SHOWREEL', id: 'hero-showreel' },
     { label: 'SELECTED WORKS', id: 'projects' },
+    { label: 'CONTACT', id: 'contact' },
   ];
 
   const handleNavClick = (id: string) => {

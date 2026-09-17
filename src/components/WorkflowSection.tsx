@@ -33,7 +33,7 @@ export const WorkflowSection: React.FC<{ onContactClick: () => void }> = ({ onCo
   const gear = [
     { name: 'Color Reference Monitor', spec: 'Flanders Scientific DM240 10-bit Calibrated' },
     { name: 'NLE Hardware', spec: 'Apple Mac Studio M2 Ultra (128GB Unified Memory)' },
-    { name: 'Control Surfaces', spec: 'DaVinci Resolve Mini Panel & Tangent Ripple' },
+    { name: 'Control Surfaces', spec: 'LoupeDeck CT & Tangent Wave Control' },
     { name: 'Storage & Network', spec: '120TB 10GbE NVMe Fast Scratch RAID' },
     { name: 'Review Ecosystem', spec: 'Frame.io Pro C2C & Vimeo Enterprise Review' },
     { name: 'Monitoring Acoustics', spec: 'Genelec 8330A Smart Active Studio Monitors' },

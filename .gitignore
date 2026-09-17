@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Large raw video media files (>100MB exceeds GitHub file size limit)
+Shortform/
+Longform/
+*.mp4
+
