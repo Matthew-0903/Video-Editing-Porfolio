@@ -92,7 +92,7 @@ export const INITIAL_PROJECTS: Project[] = [
     aspectRatio: '16:9',
     duration: '15:20',
     timecode: '00:15:20:00',
-    videoUrl: 'https://youtu.be/pPQUBVD0cgA',
+    videoUrl: 'https://youtu.be/Oy1xCE3ACVo',
     posterUrl: '/thumbnails/lf-gc-financial-house.webp',
     description: '15-minute wealth management documentary keynote. Thoughtfully structured story arc, B-roll integration, and broadcast-ready loudness compliance (-14 LUFS).',
     role: 'Lead Long-Form Editor',

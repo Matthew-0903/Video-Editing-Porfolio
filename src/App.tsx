@@ -14,7 +14,7 @@ export default function App() {
   // Use the prominent long-form master as the cinematic hero video
   // Use "Who is the GC for Your Financial House?" as the featured hero video
   const heroProject = projects.find((p) => p.id === 'lf-gc-financial-house') || projects[0];
-  const heroVideo = heroProject ? heroProject.videoUrl : 'https://youtu.be/pPQUBVD0cgA';
+  const heroVideo = heroProject ? heroProject.videoUrl : 'https://youtu.be/Oy1xCE3ACVo';
 
   const handleScrollTo = (elementId: string) => {
     const el = document.getElementById(elementId);
