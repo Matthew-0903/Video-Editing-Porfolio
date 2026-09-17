@@ -1,0 +1,6 @@
+{
+  "name": "MONOCHROME // Video Editor Portfolio",
+  "description": "Minimalist black and white video editing portfolio showcasing short-form and long-form projects, custom aspect ratio monitor, and curated cuts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
