@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Grid, LayoutGrid, List, Smartphone, Film, Award, Clock, Maximize2 } from 'lucide-react';
 import { Project } from '../types';
 import { SpotlightCard } from './reactbits/SpotlightCard';
+import { parseVideoUrl } from '../utils/video';
 
 interface ProjectGridProps {
   projects: Project[];
@@ -29,9 +30,14 @@ const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
   const [isPlayingInline, setIsPlayingInline] = useState(false);
   const [isMutedInline, setIsMutedInline] = useState(true);
 
-  const shouldStreamVideo = isHovered || isPlayingInline;
+  const isVertical = project.aspectRatio === '9:16';
+  const videoUrl = project.videoUrl;
+  const parsedVideo = parseVideoUrl(videoUrl);
+  const isDirectMp4 = parsedVideo.type === 'mp4';
 
-  // Stream video only when user hovers or explicitly plays inline
+  const shouldStreamVideo = isDirectMp4 && (isHovered || isPlayingInline);
+
+  // Stream video only when user hovers or explicitly plays inline (for direct MP4s)
   useEffect(() => {
     if (shouldStreamVideo && videoRef.current) {
       if (videoRef.current.currentTime === 0) {
@@ -53,6 +59,10 @@ const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
 
   const toggleInlinePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isDirectMp4) {
+      onOpenModal();
+      return;
+    }
     if (isPlayingInline) {
       setIsPlayingInline(false);
       if (videoRef.current) videoRef.current.pause();
@@ -60,6 +70,7 @@ const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
       setIsPlayingInline(true);
     }
   };
+
 
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -72,9 +83,6 @@ const ProjectCardMedia: React.FC<ProjectCardMediaProps> = ({
     e.stopPropagation();
     onOpenModal();
   };
-
-  const isVertical = project.aspectRatio === '9:16';
-  const videoUrl = project.videoUrl;
 
   return (
     <div

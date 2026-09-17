@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward, 
   Film, Sliders, Award, Layers, Clock, Info, CheckCircle2, Heart,
-  MessageCircle, Bookmark, Share2, Music2, Eye, ShieldCheck
+  MessageCircle, Bookmark, Share2, Music2, Eye, ShieldCheck,
+  AlertCircle, ExternalLink
 } from 'lucide-react';
 import { Project } from '../types';
+import { parseVideoUrl } from '../utils/video';
 
 interface VideoPlayerModalProps {
   project: Project | null;
@@ -29,8 +31,14 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'player' | 'breakdown' | 'specs'>('player');
   const [showSafeZone, setShowSafeZone] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [hasVideoError, setHasVideoError] = useState<boolean>(false);
 
   const isCurrentVertical = project?.aspectRatio === '9:16' || aspectRatioOverride === '9:16';
+
+  useEffect(() => {
+    setHasVideoError(false);
+  }, [project, customVideoUrl]);
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -149,6 +157,8 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   if (!project) return null;
 
   const currentVideoSrc = customVideoUrl || project.videoUrl;
+  const parsedVideo = parseVideoUrl(currentVideoSrc);
+  const isEmbed = parsedVideo.type === 'youtube' || parsedVideo.type === 'vimeo';
 
   const filterStyles = {
     'finished': 'contrast(105%) brightness(100%)',
@@ -189,6 +199,11 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
               <span className="hidden sm:inline-block rounded border border-neutral-800 px-2 py-0.5 font-mono text-[10px] text-neutral-400">
                 {project.category}
               </span>
+              {isEmbed && (
+                <span className="hidden md:inline-block rounded bg-neutral-900 border border-neutral-700 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                  ● {parsedVideo.type.toUpperCase()} EMBED
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -250,21 +265,56 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                       : 'aspect-video max-w-5xl'
                   }`}
                 >
-                  <video
-                    ref={videoRef}
-                    src={currentVideoSrc}
-                    muted={isMuted}
-                    playsInline
-                    loop
-                    onTimeUpdate={handleTimeUpdate}
-                    onLoadedMetadata={handleLoadedMetadata}
-                    onClick={togglePlay}
-                    style={{ filter: filterStyles[colorGradeMode] }}
-                    className="h-full w-full object-contain cursor-pointer"
-                  />
+                  {isEmbed ? (
+                    <iframe
+                      key={parsedVideo.embedUrl}
+                      src={parsedVideo.embedUrl}
+                      title={project.title}
+                      className="h-full w-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : hasVideoError ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-center max-w-md z-10">
+                      <AlertCircle className="h-12 w-12 text-amber-400 mb-3" />
+                      <h4 className="font-display text-lg font-bold text-white uppercase mb-2">
+                        Hosted Video Link Needed
+                      </h4>
+                      <p className="text-xs text-neutral-400 leading-relaxed mb-4">
+                        Large video files exceed GitHub's 100MB repository limit and cannot be deployed directly to Vercel.
+                        Upload this edit to <strong className="text-white">YouTube (Unlisted)</strong> or <strong className="text-white">Vimeo</strong>, then paste the link into <code className="text-amber-300 bg-neutral-900 border border-neutral-800 px-1.5 py-0.5 rounded">src/data/projects.ts</code> to play online.
+                      </p>
+                      <div className="relative rounded-lg overflow-hidden border border-neutral-800 max-h-40 w-full">
+                        <img
+                          src={project.posterUrl}
+                          alt={project.title}
+                          className="w-full h-full object-cover opacity-60"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                          <span className="font-mono text-[10px] text-neutral-300 bg-black/80 px-2 py-1 rounded border border-neutral-700">
+                            POSTER PREVIEW CACHED
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      src={currentVideoSrc}
+                      muted={isMuted}
+                      playsInline
+                      loop
+                      onTimeUpdate={handleTimeUpdate}
+                      onLoadedMetadata={handleLoadedMetadata}
+                      onError={() => setHasVideoError(true)}
+                      onClick={togglePlay}
+                      style={{ filter: filterStyles[colorGradeMode] }}
+                      className="h-full w-full object-contain cursor-pointer"
+                    />
+                  )}
 
                   {/* Cinema Letterbox Bars if 2.39:1 scope is simulated over 16:9 screen */}
-                  {effectiveAspect === '2.39:1' && (
+                  {!isEmbed && effectiveAspect === '2.39:1' && (
                     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
                       <div className="h-[8%] w-full bg-black/90 border-b border-neutral-900" />
                       <div className="h-[8%] w-full bg-black/90 border-t border-neutral-900" />
@@ -272,7 +322,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                   )}
 
                   {/* TikTok / Instagram Reels UI Safe Zone Simulator */}
-                  {showSafeZone && effectiveAspect === '9:16' && (
+                  {!isEmbed && showSafeZone && effectiveAspect === '9:16' && (
                     <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 bg-transparent select-none">
                       {/* Top Bar: Following / For You */}
                       <div className="flex items-center justify-center gap-4 text-xs font-semibold text-white/70 drop-shadow">
@@ -320,20 +370,24 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                     </div>
                   )}
 
-                  {/* On-screen Timecode & Telemetry HUD */}
-                  <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-xs text-white/90 backdrop-blur-sm border border-neutral-800 z-20">
-                    <Clock className="h-3 w-3 text-neutral-400" />
-                    <span>TC: {formatTimecode(currentTime)}</span>
-                  </div>
+                  {/* On-screen Timecode & Telemetry HUD (for local MP4) */}
+                  {!isEmbed && !hasVideoError && (
+                    <>
+                      <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-xs text-white/90 backdrop-blur-sm border border-neutral-800 z-20">
+                        <Clock className="h-3 w-3 text-neutral-400" />
+                        <span>TC: {formatTimecode(currentTime)}</span>
+                      </div>
 
-                  <div className="pointer-events-none absolute top-3 right-3 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-[11px] text-white/80 backdrop-blur-sm border border-neutral-800 z-20">
-                    <span>{playbackSpeed}x SPEED</span>
-                    <span className="text-neutral-500">•</span>
-                    <span>LUT: {colorGradeMode.toUpperCase()}</span>
-                  </div>
+                      <div className="pointer-events-none absolute top-3 right-3 flex items-center gap-2 rounded bg-black/80 px-2.5 py-1 font-mono text-[11px] text-white/80 backdrop-blur-sm border border-neutral-800 z-20">
+                        <span>{playbackSpeed}x SPEED</span>
+                        <span className="text-neutral-500">•</span>
+                        <span>LUT: {colorGradeMode.toUpperCase()}</span>
+                      </div>
+                    </>
+                  )}
 
                   {/* Big Play Pause Center Splash on Pause */}
-                  {!isPlaying && (
+                  {!isEmbed && !hasVideoError && !isPlaying && (
                     <button
                       onClick={togglePlay}
                       className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-transform hover:scale-110 z-20"
@@ -345,148 +399,200 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
 
                 {/* Video Transport Controls */}
                 <div className="w-full max-w-5xl bg-[#0e0e11] border border-neutral-800 rounded-xl px-4 py-3 mt-3">
-                  {/* Scrubber Bar */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="font-mono text-xs text-neutral-400 w-24">
-                      {formatTimecode(currentTime)}
-                    </span>
-                    <div className="relative flex-1 group">
-                      <input
-                        id="video-timeline-scrubber"
-                        type="range"
-                        min="0"
-                        max={duration || 100}
-                        step="0.04"
-                        value={currentTime}
-                        onChange={handleSeek}
-                        className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white focus:outline-none"
-                      />
+                  {isEmbed ? (
+                    /* Embed Player Navigation & Format Toolbar */
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="font-mono text-xs text-neutral-300">
+                          STREAMING VIA {parsedVideo.type.toUpperCase()} HIGH-PERFORMANCE EMBED
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Format / Aspect Ratio Simulator */}
+                        <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
+                          <span className="font-mono text-[10px] text-neutral-500 px-1">FRAME:</span>
+                          {(['default', '16:9', '9:16', '2.39:1'] as const).map((ratio) => (
+                            <button
+                              key={ratio}
+                              onClick={() => setAspectRatioOverride(ratio)}
+                              className={`px-2 py-0.5 rounded font-mono text-[10px] uppercase transition-colors ${
+                                aspectRatioOverride === ratio
+                                  ? 'bg-white text-black font-bold'
+                                  : 'text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              {ratio === 'default' ? 'AUTO' : ratio}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Open external video button */}
+                        {parsedVideo.videoId && (
+                          <a
+                            href={
+                              parsedVideo.type === 'youtube'
+                                ? `https://www.youtube.com/watch?v=${parsedVideo.videoId}`
+                                : `https://vimeo.com/${parsedVideo.videoId}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-white font-mono text-xs border border-neutral-800 transition-colors"
+                          >
+                            <span>OPEN ON {parsedVideo.type.toUpperCase()}</span>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <span className="font-mono text-xs text-neutral-500 w-24 text-right">
-                      {formatTimecode(duration)}
-                    </span>
-                  </div>
+                  ) : (
+                    /* Native HTML5 Scrubber & Secondary Transport */
+                    <>
+                      {/* Scrubber Bar */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="font-mono text-xs text-neutral-400 w-24">
+                          {formatTimecode(currentTime)}
+                        </span>
+                        <div className="relative flex-1 group">
+                          <input
+                            id="video-timeline-scrubber"
+                            type="range"
+                            min="0"
+                            max={duration || 100}
+                            step="0.04"
+                            value={currentTime}
+                            onChange={handleSeek}
+                            className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-white focus:outline-none"
+                          />
+                        </div>
+                        <span className="font-mono text-xs text-neutral-500 w-24 text-right">
+                          {formatTimecode(duration)}
+                        </span>
+                      </div>
 
-                  {/* Secondary Transport & Toggles */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                    {/* Playback & Frame Buttons */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        id="step-frame-back-btn"
-                        onClick={() => stepFrame(-1)}
-                        className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
-                        title="Step Back 1 Frame (Left Arrow)"
-                      >
-                        <SkipBack className="h-3.5 w-3.5" />
-                      </button>
+                      {/* Secondary Transport & Toggles */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                        {/* Playback & Frame Buttons */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            id="step-frame-back-btn"
+                            onClick={() => stepFrame(-1)}
+                            className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+                            title="Step Back 1 Frame (Left Arrow)"
+                          >
+                            <SkipBack className="h-3.5 w-3.5" />
+                          </button>
 
-                      <button
-                        id="play-pause-btn"
-                        onClick={togglePlay}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white text-black font-semibold hover:bg-neutral-200 transition-colors"
-                      >
-                        {isPlaying ? <Pause className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
-                        <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
-                      </button>
+                          <button
+                            id="play-pause-btn"
+                            onClick={togglePlay}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white text-black font-semibold hover:bg-neutral-200 transition-colors"
+                          >
+                            {isPlaying ? <Pause className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+                            <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
+                          </button>
 
-                      <button
-                        id="step-frame-forward-btn"
-                        onClick={() => stepFrame(1)}
-                        className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
-                        title="Step Forward 1 Frame (Right Arrow)"
-                      >
-                        <SkipForward className="h-3.5 w-3.5" />
-                      </button>
+                          <button
+                            id="step-frame-forward-btn"
+                            onClick={() => stepFrame(1)}
+                            className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+                            title="Step Forward 1 Frame (Right Arrow)"
+                          >
+                            <SkipForward className="h-3.5 w-3.5" />
+                          </button>
 
-                      <button
-                        id="audio-mute-btn"
-                        onClick={toggleMute}
-                        className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 ml-1"
-                        title={isMuted ? 'Unmute' : 'Mute'}
-                      >
-                        {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
+                          <button
+                            id="audio-mute-btn"
+                            onClick={toggleMute}
+                            className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 ml-1"
+                            title={isMuted ? 'Unmute' : 'Mute'}
+                          >
+                            {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
 
-                    {/* Speed Selector */}
-                    <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
-                      <span className="font-mono text-[10px] text-neutral-500 px-1">SPEED:</span>
-                      {[0.5, 1, 1.5, 2].map((spd) => (
+                        {/* Speed Selector */}
+                        <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
+                          <span className="font-mono text-[10px] text-neutral-500 px-1">SPEED:</span>
+                          {[0.5, 1, 1.5, 2].map((spd) => (
+                            <button
+                              key={spd}
+                              onClick={() => handleSpeedChange(spd)}
+                              className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${
+                                playbackSpeed === spd
+                                  ? 'bg-neutral-700 text-white font-bold'
+                                  : 'text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              {spd}x
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Format / Aspect Ratio Simulator */}
+                        <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
+                          <span className="font-mono text-[10px] text-neutral-500 px-1">FRAME:</span>
+                          {(['default', '16:9', '9:16', '2.39:1'] as const).map((ratio) => (
+                            <button
+                              key={ratio}
+                              onClick={() => setAspectRatioOverride(ratio)}
+                              className={`px-2 py-0.5 rounded font-mono text-[10px] uppercase transition-colors ${
+                                aspectRatioOverride === ratio
+                                  ? 'bg-white text-black font-bold'
+                                  : 'text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              {ratio === 'default' ? 'AUTO' : ratio}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Safe Zone Toggle (for 9:16) */}
+                        {effectiveAspect === '9:16' && (
+                          <button
+                            onClick={() => setShowSafeZone(!showSafeZone)}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded font-mono text-[10px] border transition-colors ${
+                              showSafeZone 
+                                ? 'bg-blue-600 text-white border-blue-500 font-bold' 
+                                : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:text-white'
+                            }`}
+                            title="Toggle TikTok / Reels Safe Margins Overlay"
+                          >
+                            <ShieldCheck className="h-3 w-3" />
+                            <span>REELS HUD</span>
+                          </button>
+                        )}
+
+                        {/* Color Profile Simulation */}
+                        <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
+                          <span className="font-mono text-[10px] text-neutral-500 px-1">LUT:</span>
+                          {(['finished', 'bw-noir', 'flat-log'] as const).map((mode) => (
+                            <button
+                              key={mode}
+                              onClick={() => setColorGradeMode(mode)}
+                              className={`px-2 py-0.5 rounded font-mono text-[10px] uppercase transition-colors ${
+                                colorGradeMode === mode
+                                  ? 'bg-neutral-700 text-white font-bold'
+                                  : 'text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              {mode === 'finished' ? 'REC.709' : mode === 'bw-noir' ? 'NOIR' : 'LOG'}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Fullscreen */}
                         <button
-                          key={spd}
-                          onClick={() => handleSpeedChange(spd)}
-                          className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${
-                            playbackSpeed === spd
-                              ? 'bg-neutral-700 text-white font-bold'
-                              : 'text-neutral-400 hover:text-white'
-                          }`}
+                          onClick={toggleFullscreen}
+                          className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
+                          title="Fullscreen"
                         >
-                          {spd}x
+                          <Maximize2 className="h-3.5 w-3.5" />
                         </button>
-                      ))}
-                    </div>
-
-                    {/* Format / Aspect Ratio Simulator */}
-                    <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
-                      <span className="font-mono text-[10px] text-neutral-500 px-1">FRAME:</span>
-                      {(['default', '16:9', '9:16', '2.39:1'] as const).map((ratio) => (
-                        <button
-                          key={ratio}
-                          onClick={() => setAspectRatioOverride(ratio)}
-                          className={`px-2 py-0.5 rounded font-mono text-[10px] uppercase transition-colors ${
-                            aspectRatioOverride === ratio
-                              ? 'bg-white text-black font-bold'
-                              : 'text-neutral-400 hover:text-white'
-                          }`}
-                        >
-                          {ratio === 'default' ? 'AUTO' : ratio}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Safe Zone Toggle (for 9:16) */}
-                    {effectiveAspect === '9:16' && (
-                      <button
-                        onClick={() => setShowSafeZone(!showSafeZone)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded font-mono text-[10px] border transition-colors ${
-                          showSafeZone 
-                            ? 'bg-blue-600 text-white border-blue-500 font-bold' 
-                            : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:text-white'
-                        }`}
-                        title="Toggle TikTok / Reels Safe Margins Overlay"
-                      >
-                        <ShieldCheck className="h-3 w-3" />
-                        <span>REELS HUD</span>
-                      </button>
-                    )}
-
-                    {/* Color Profile Simulation */}
-                    <div className="flex items-center gap-1 bg-neutral-900/90 p-1 rounded border border-neutral-800">
-                      <span className="font-mono text-[10px] text-neutral-500 px-1">LUT:</span>
-                      {(['finished', 'bw-noir', 'flat-log'] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          onClick={() => setColorGradeMode(mode)}
-                          className={`px-2 py-0.5 rounded font-mono text-[10px] uppercase transition-colors ${
-                            colorGradeMode === mode
-                              ? 'bg-neutral-700 text-white font-bold'
-                              : 'text-neutral-400 hover:text-white'
-                          }`}
-                        >
-                          {mode === 'finished' ? 'REC.709' : mode === 'bw-noir' ? 'NOIR' : 'LOG'}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Fullscreen */}
-                    <button
-                      onClick={toggleFullscreen}
-                      className="p-1.5 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800"
-                      title="Fullscreen"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}

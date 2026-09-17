@@ -13,7 +13,8 @@ export default function App() {
 
   // Use the prominent long-form master as the cinematic hero video
   // Use "Who is the GC for Your Financial House?" as the featured hero video
-  const heroVideo = '/Longform/Who%20is%20the%20GC%20for%20financial%20house.mp4';
+  const heroProject = projects.find((p) => p.id === 'lf-gc-financial-house') || projects[0];
+  const heroVideo = heroProject ? heroProject.videoUrl : '/Longform/Who%20is%20the%20GC%20for%20financial%20house.mp4';
 
   const handleScrollTo = (elementId: string) => {
     const el = document.getElementById(elementId);
@@ -23,7 +24,6 @@ export default function App() {
   };
 
   const handleOpenDirectReel = () => {
-    const heroProject = projects.find((p) => p.id === 'lf-gc-financial-house') || projects[0];
     setSelectedProject(heroProject);
   };
 
